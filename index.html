@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Mini-HMI Extruder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1e2430;
+            color: #eee;
+            padding: 20px;
+        }
+
+        .panel {
+            display: flex;
+            gap: 20px;
+        }
+
+        .karte {
+            background: #2c3445;
+            padding: 20px;
+            border-radius: 8px;
+            min-width: 200px;
+        }
+
+        .wert {
+            font-size: 40px;
+            font-weight: bold;
+        }
+
+        .grenzwert {
+            font-size: 40px;
+            font-weight: bold;
+            color: red;
+        }
+
+        .status {
+            padding: 6px 12px;
+            border-radius: 4px;
+            background: gray;
+            display: inline-block;
+        }
+
+        .status.laeuft {
+            background: green;
+        }
+
+        .alarm {
+            color: red;
+        }
+
+        .notaus {
+            background: #c00;
+            color: white;
+            font-weight: bold;
+        }
+
+        .status.notaus-aktiv {
+            background: red;
+        }
+
+        button {
+            font-size: 18px;
+            padding: 12px 24px;
+            margin-right: 10px;
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+<h1>Extruder – Zone 1</h1>
+
+<div class="panel">
+    <div class="karte">
+        <h2>Motor</h2>
+        <span id="status" class="status">steht</span>
+        <p>
+            <button id="btnStart">Start</button>
+            <button id="btnStopp">Stopp</button>
+            <button id="btnNotAus" class="notaus">NOT-AUS</button>
+            <button id="btnQuittieren" hidden>Quittieren</button>
+        </p>
+        <div>
+            <label for="grenzwertInput">Grenzwert (°C)</label>
+            <input type="number" id="grenzwertInput" value="80" min="50" max="250" step="5">
+        </div>
+    </div>
+
+    <div class="karte">
+        <h2>Temperatur</h2>
+        <span id="temperatur" class="wert">20</span> °C
+        <p id="alarm" class="alarm" hidden>⚠ Übertemperatur!</p>
+    </div>
+    <div class="karte">
+        <h2>Grenzwert</h2>
+        <span id="grenzwert" class="grenzwert">80</span><span class="grenzwert"> °C</span>
+    </div>
+    <div class="karte">
+        <h2>Alarmprotokoll</h2>
+        <p>Übertemperatur Zeitpunkte werden hier angezeigt!</p>
+        <ul id="alarmListe"></ul>
+    </div>
+</div>
+
+<script>
+    const MIN_GRENZE = 50;
+    const MAX_GRENZE = 250;
+
+    let laeuft = false;
+    let temperatur = 20;
+
+    let grenzwert = 80;
+    let alarmWarAktiv = false;
+    let notAus = false;
+
+    // 2. Elemente aus dem HTML holen
+    const statusEl = document.querySelector('#status');
+    const grenzwertEl = document.querySelector('#grenzwert');
+    const temperaturEl = document.querySelector('#temperatur');
+    const alarmEl = document.querySelector('#alarm');
+    const btnStart = document.querySelector('#btnStart');
+    const btnStopp = document.querySelector('#btnStopp');
+    const grenzwertInput = document.querySelector('#grenzwertInput');
+    const btnNotAus = document.querySelector('#btnNotAus');
+    const btnQuittieren = document.querySelector('#btnQuittieren');
+    const alarmListeEl = document.querySelector('#alarmListe');
+
+
+    // 3. Anzeige aktualisieren
+    function render() {
+        statusEl.classList.toggle('laeuft', laeuft);
+        grenzwertEl.textContent = grenzwert;
+        temperaturEl.textContent = temperatur;
+        temperaturEl.classList.toggle('alarm', temperatur > grenzwert);
+        alarmEl.hidden = !istAlarm();
+        pruefeAlarm();
+        statusEl.textContent = notAus ? 'NOT-AUS' : (laeuft ? 'läuft' : 'steht');
+        statusEl.classList.toggle('notaus-aktiv', notAus);
+        btnStart.disabled = notAus;
+        btnQuittieren.hidden = !notAus;
+    }
+
+    function istAlarm() {
+        return temperatur > grenzwert;
+    }
+
+    function pruefeAlarm() {
+        const alarmIstAktiv = istAlarm();
+        if (alarmIstAktiv && !alarmWarAktiv) {
+            eintragHinzufugen(`Übertemperatur (${temperatur} °C)`);
+        }
+        alarmWarAktiv = alarmIstAktiv;
+    }
+
+    function eintragHinzufugen(text) {
+        const zeit = new Date().toLocaleTimeString('de-DE');
+        const eintrag = document.createElement('li');
+        eintrag.textContent = `${zeit} - ${text}`;
+        alarmListeEl.prepend(eintrag);
+    }
+
+    btnStart.addEventListener('click', () => {
+        if (notAus) return;
+        laeuft = true;
+        render();
+    });
+    btnStopp.addEventListener('click', () => {
+        laeuft = false;
+        render();
+    });
+
+    grenzwertInput.addEventListener('change', () => {
+        const wert = Number(grenzwertInput.value);
+        if (grenzwertInput.value.trim() !== '' && !Number.isNaN(wert)) {
+            grenzwert = Math.min(MAX_GRENZE, Math.max(MIN_GRENZE, wert));
+            render();
+        }
+    });
+    btnNotAus.addEventListener('click', () => {
+        notAus = true;
+        laeuft = false;
+        eintragHinzufugen('NOT-AUS ausgelöst');
+        render();
+    });
+
+    btnQuittieren.addEventListener('click', () => {
+        notAus = false;
+        laeuft = false;
+        eintragHinzufugen(`NOT-AUS quittiert`);
+        render();
+    })
+
+    setInterval(() => {
+        if (laeuft) {
+            temperatur = temperatur + 5;
+        } else {
+            temperatur = Math.max(20, temperatur - 2);
+        }
+        render();
+    }, 1000);
+
+    render();
+</script>
+</body>
+</html>

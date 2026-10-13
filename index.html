@@ -14,6 +14,7 @@
         .panel {
             display: flex;
             gap: 20px;
+            flex-wrap: wrap;
         }
 
         .karte {
@@ -27,13 +28,6 @@
             font-size: 40px;
             font-weight: bold;
         }
-
-        .grenzwert {
-            font-size: 40px;
-            font-weight: bold;
-            color: red;
-        }
-
         .status {
             padding: 6px 12px;
             border-radius: 4px;
@@ -68,11 +62,12 @@
         button:disabled {
             opacity: 0.4;
             cursor: not-allowed;
+            color: white;
         }
     </style>
 </head>
 <body>
-<h1>Extruder – Zone 1</h1>
+<h1>Extruder-Heizzonen</h1>
 
 <div class="panel">
     <div class="karte">
@@ -84,26 +79,15 @@
             <button id="btnNotAus" class="notaus">NOT-AUS</button>
             <button id="btnQuittieren" hidden>Quittieren</button>
         </p>
-        <div>
-            <label for="grenzwertInput">Grenzwert (°C)</label>
-            <input type="number" id="grenzwertInput" value="80" min="50" max="250" step="5">
-        </div>
     </div>
 
-    <div class="karte">
-        <h2>Temperatur</h2>
-        <span id="temperatur" class="wert">20</span> °C
-        <p id="alarm" class="alarm" hidden>⚠ Übertemperatur!</p>
-    </div>
-    <div class="karte">
-        <h2>Grenzwert</h2>
-        <span id="grenzwert" class="grenzwert">80</span><span class="grenzwert"> °C</span>
-    </div>
+
     <div class="karte">
         <h2>Alarmprotokoll</h2>
-        <p>Übertemperatur Zeitpunkte werden hier angezeigt!</p>
+        <p>Alarme und Ereignisse!</p>
         <ul id="alarmListe"></ul>
     </div>
+    <div id="zonenPanel" class="panel"></div>
 </div>
 
 <script>
@@ -111,49 +95,69 @@
     const MAX_GRENZE = 250;
 
     let laeuft = false;
-    let temperatur = 20;
-
-    let grenzwert = 80;
-    let alarmWarAktiv = false;
     let notAus = false;
+    const zonen = [
+        {name: 'Zone 1', temperatur: 20, grenzwert: 80, heizrate: 5, alarmWarAktiv: false},
+        {name: 'Zone 2', temperatur: 20, grenzwert: 90, heizrate: 4, alarmWarAktiv: false},
+        {name: 'Zone 3', temperatur: 20, grenzwert: 100, heizrate: 3, alarmWarAktiv: false}
+    ];
 
     // 2. Elemente aus dem HTML holen
     const statusEl = document.querySelector('#status');
-    const grenzwertEl = document.querySelector('#grenzwert');
-    const temperaturEl = document.querySelector('#temperatur');
-    const alarmEl = document.querySelector('#alarm');
     const btnStart = document.querySelector('#btnStart');
     const btnStopp = document.querySelector('#btnStopp');
-    const grenzwertInput = document.querySelector('#grenzwertInput');
     const btnNotAus = document.querySelector('#btnNotAus');
     const btnQuittieren = document.querySelector('#btnQuittieren');
     const alarmListeEl = document.querySelector('#alarmListe');
+    const zonenPanel = document.querySelector('#zonenPanel');
 
 
     // 3. Anzeige aktualisieren
     function render() {
+        zonen.forEach((zone, index) => {
+            const karte = zonenPanel.querySelector(`[data-index="${index}"]`);
+            const temp = karte.querySelector('.temperatur');
+            const alarmEl = karte.querySelector('.alarmText');
+            temp.textContent = zone.temperatur;
+            temp.classList.toggle('alarm', zone.temperatur > zone.grenzwert);
+            alarmEl.hidden = !istAlarm(zone);
+        });
         statusEl.classList.toggle('laeuft', laeuft);
-        grenzwertEl.textContent = grenzwert;
-        temperaturEl.textContent = temperatur;
-        temperaturEl.classList.toggle('alarm', temperatur > grenzwert);
-        alarmEl.hidden = !istAlarm();
-        pruefeAlarm();
         statusEl.textContent = notAus ? 'NOT-AUS' : (laeuft ? 'läuft' : 'steht');
         statusEl.classList.toggle('notaus-aktiv', notAus);
         btnStart.disabled = notAus;
         btnQuittieren.hidden = !notAus;
     }
 
-    function istAlarm() {
-        return temperatur > grenzwert;
+    function zonenKarteErstellen() {
+        zonen.forEach((zone, index) => {
+            const karte = document.createElement('div');
+            karte.className = 'karte';
+            karte.dataset.index = index;
+            karte.innerHTML = `
+            <h2>${zone.name}</h2>
+            <span class="temperatur wert">${zone.temperatur}</span> °C
+            <p class="alarm alarmText" hidden>⚠ Übertemperatur!</p>
+            <div>
+             <label>Grenzwert (°C)
+                     <input type="number" class="grenzwertInput" data-index="${index}" value="${zone.grenzwert}" min="50" max="250" step="5">
+             </label>
+            </div>
+           `;
+            zonenPanel.append(karte);
+        });
     }
 
-    function pruefeAlarm() {
-        const alarmIstAktiv = istAlarm();
-        if (alarmIstAktiv && !alarmWarAktiv) {
-            eintragHinzufugen(`Übertemperatur (${temperatur} °C)`);
+    function istAlarm(zone) {
+        return zone.temperatur > zone.grenzwert;
+    }
+
+    function pruefeAlarm(zone) {
+        const alarmIstAktiv = istAlarm(zone);
+        if (alarmIstAktiv && !zone.alarmWarAktiv) {
+            eintragHinzufugen(`${zone.name}: Übertemperatur (${zone.temperatur} °C)`);
         }
-        alarmWarAktiv = alarmIstAktiv;
+        zone.alarmWarAktiv = alarmIstAktiv;
     }
 
     function eintragHinzufugen(text) {
@@ -173,13 +177,6 @@
         render();
     });
 
-    grenzwertInput.addEventListener('change', () => {
-        const wert = Number(grenzwertInput.value);
-        if (grenzwertInput.value.trim() !== '' && !Number.isNaN(wert)) {
-            grenzwert = Math.min(MAX_GRENZE, Math.max(MIN_GRENZE, wert));
-            render();
-        }
-    });
     btnNotAus.addEventListener('click', () => {
         notAus = true;
         laeuft = false;
@@ -192,17 +189,33 @@
         laeuft = false;
         eintragHinzufugen(`NOT-AUS quittiert`);
         render();
-    })
+    });
+    zonenPanel.addEventListener('change', (event) => {
+        if (!event.target.matches('.grenzwertInput')) return;   // nur unsere Felder
+        const index = Number(event.target.dataset.index);        // welche Zone?
+        const zone = zonen[index];
+        const wert = Number(event.target.value);
+        if (event.target.value.trim() !== '' && !Number.isNaN(wert)) {
+            zone.grenzwert = Math.min(MAX_GRENZE, Math.max(MIN_GRENZE, wert));
+            pruefeAlarm(zone);
+            render();
+        };
+        event.target.value = zone.grenzwert;
+
+    });
 
     setInterval(() => {
-        if (laeuft) {
-            temperatur = temperatur + 5;
-        } else {
-            temperatur = Math.max(20, temperatur - 2);
-        }
+        zonen.forEach(zone => {
+            if (laeuft) {
+                zone.temperatur = zone.temperatur + zone.heizrate;
+            } else {
+                zone.temperatur = Math.max(20, zone.temperatur - 2);
+            }
+            pruefeAlarm(zone);
+        })
         render();
     }, 1000);
-
+    zonenKarteErstellen();
     render();
 </script>
 </body>

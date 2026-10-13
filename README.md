@@ -12,6 +12,7 @@ Eine kleine Bedienoberfläche (HMI) für eine simulierte Extruder-Heizzone – m
 - Alarm bei Übertemperatur
 - Alarmprotokoll mit Uhrzeit (ein Eintrag pro Alarm)
 - Not-Aus mit Quittierung (Wiederanlaufschutz)
+- Mehrere Heizzonen mit eigenem Grenzwert
 
 ## Starten
 

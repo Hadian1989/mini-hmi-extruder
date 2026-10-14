@@ -13,6 +13,12 @@
 
         .panel {
             display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sub-panel {
+            display: flex;
             gap: 20px;
             flex-wrap: wrap;
         }
@@ -21,14 +27,16 @@
             background: #2c3445;
             padding: 20px;
             border-radius: 10px;
-            min-width: 200px;
+            min-width: 360px;
             border-top: 4px solid #5a6577;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
+
         .wert {
             font-size: 40px;
             font-weight: bold;
         }
+
         .status {
             padding: 6px 14px;
             border-radius: 10px;
@@ -65,12 +73,19 @@
                 opacity: 0.3;
             }
         }
+
         .notaus {
             background: #c00;
             color: white;
             font-weight: bold;
         }
 
+        input {
+            width: 100px;
+            height: 20px;
+            font-size: 16px;
+            padding: 3px;
+        }
 
         button {
             font-size: 16px;
@@ -104,30 +119,50 @@
             font-size: 14px;
             font-family: monospace;
         }
+
+        .messwert {
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+            margin: 8px 0;
+        }
+        .messwert:has(.temperatur.alarm) .einheit {
+            color: red;
+        }
+        .einheit {
+            font-size: 18px;
+            color: #9aa4b5;
+        }
+
+
+        .ubertemperatur {
+            margin-top: 20px
+        }
     </style>
 </head>
 <body>
 <h1>Extruder-Heizzonen</h1>
 
 <div class="panel">
-    <div class="karte">
-        <h2>Motor</h2>
-        <span id="status" class="status">steht</span>
-        <p>
-            <button id="btnStart">Start</button>
-            <button id="btnStopp">Stopp</button>
-            <button id="btnNotAus" class="notaus">NOT-AUS</button>
-            <button id="btnQuittieren" hidden>Quittieren</button>
-        </p>
-    </div>
+    <div class="sub-panel">
+        <div class="karte">
+            <h2>Motor</h2>
+            <span id="status" class="status">steht</span>
+            <p>
+                <button id="btnStart">Start</button>
+                <button id="btnStopp">Stopp</button>
+                <button id="btnNotAus" class="notaus">NOT-AUS</button>
+                <button id="btnQuittieren" hidden>Quittieren</button>
+            </p>
+        </div>
 
-
-    <div class="karte">
-        <h2>Alarmprotokoll</h2>
-        <p>Alarme und Ereignisse!</p>
-        <ul id="alarmListe"></ul>
+        <div class="karte">
+            <h2>Alarmprotokoll</h2>
+            <p>Alarme und Ereignisse!</p>
+            <ul id="alarmListe"></ul>
+        </div>
     </div>
-    <div id="zonenPanel" class="panel"></div>
+    <div id="zonenPanel" class="sub-panel"></div>
 </div>
 
 <script>
@@ -191,12 +226,15 @@
             karte.dataset.index = index;
             karte.innerHTML = `
             <h2>${zone.name}</h2>
-            <span class="temperatur wert">${zone.temperatur}</span> °C
-            <p class="alarm alarmText" hidden>⚠ Übertemperatur!</p>
+            <div class="messwert">
+                <span class="temperatur wert">${zone.temperatur}</span>
+                <span class="einheit"> °C </span>
+                <span class="alarm alarmText" hidden>  ⚠ Übertemperatur!</span>
+            </div>
             <div>
-             <label>Grenzwert (°C)
+                <label>Grenzwert (°C) :
                      <input type="number" class="grenzwertInput" data-index="${index}" value="${zone.grenzwert}" min="50" max="250" step="5">
-             </label>
+                </label>
             </div>
            `;
             zonenPanel.append(karte);

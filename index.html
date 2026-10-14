@@ -28,6 +28,7 @@
             font-size: 40px;
             font-weight: bold;
         }
+
         .status {
             padding: 6px 12px;
             border-radius: 4px;
@@ -96,6 +97,9 @@
 
     let laeuft = false;
     let notAus = false;
+    let anfahren = false;
+    let aktuellerSchritt = '';
+    const SCHRITTE = ['Heizzonen prüfen', 'Schmierung einschalten', 'Motor anfahren'];
     const zonen = [
         {name: 'Zone 1', temperatur: 20, grenzwert: 80, heizrate: 5, alarmWarAktiv: false},
         {name: 'Zone 2', temperatur: 20, grenzwert: 90, heizrate: 4, alarmWarAktiv: false},
@@ -123,10 +127,21 @@
             alarmEl.hidden = !istAlarm(zone);
         });
         statusEl.classList.toggle('laeuft', laeuft);
-        statusEl.textContent = notAus ? 'NOT-AUS' : (laeuft ? 'läuft' : 'steht');
+        statusEl.textContent = statusText();
         statusEl.classList.toggle('notaus-aktiv', notAus);
-        btnStart.disabled = notAus;
+        btnStart.disabled = notAus || anfahren;
         btnQuittieren.hidden = !notAus;
+    }
+
+    function statusText() {
+        if (notAus) {
+            return 'NOT-AUS';
+        } else if (laeuft) {
+            return 'läuft';
+        } else if (anfahren) {
+            return 'Anfahren: ' + aktuellerSchritt;
+        }
+        return 'steht';
     }
 
     function zonenKarteErstellen() {
@@ -160,6 +175,10 @@
         zone.alarmWarAktiv = alarmIstAktiv;
     }
 
+    function warte(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     function eintragHinzufugen(text) {
         const zeit = new Date().toLocaleTimeString('de-DE');
         const eintrag = document.createElement('li');
@@ -167,19 +186,36 @@
         alarmListeEl.prepend(eintrag);
     }
 
-    btnStart.addEventListener('click', () => {
-        if (notAus) return;
-        laeuft = true;
-        render();
+    btnStart.addEventListener('click', async () => {
+        if (notAus || anfahren || laeuft) return;
+
+        anfahren = true;
+        eintragHinzufugen('Anfahren gestartet.');
+        for (const schritt of SCHRITTE) {
+            aktuellerSchritt = schritt;
+            render();
+            await warte(1500);
+            if (!anfahren) {
+                eintragHinzufugen('Anfahren abgebrochen.');
+                render();
+                return;
+            }
+        }
+            anfahren = false;
+            laeuft = true;
+            eintragHinzufugen("Maschine läuft.");
+            render();
     });
     btnStopp.addEventListener('click', () => {
         laeuft = false;
+        anfahren = false;
         render();
     });
 
     btnNotAus.addEventListener('click', () => {
         notAus = true;
         laeuft = false;
+        anfahren = false;
         eintragHinzufugen('NOT-AUS ausgelöst');
         render();
     });
@@ -187,6 +223,7 @@
     btnQuittieren.addEventListener('click', () => {
         notAus = false;
         laeuft = false;
+        anfahren = false;
         eintragHinzufugen(`NOT-AUS quittiert`);
         render();
     });
@@ -199,9 +236,8 @@
             zone.grenzwert = Math.min(MAX_GRENZE, Math.max(MIN_GRENZE, wert));
             pruefeAlarm(zone);
             render();
-        };
+        }
         event.target.value = zone.grenzwert;
-
     });
 
     setInterval(() => {
